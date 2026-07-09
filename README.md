@@ -93,6 +93,7 @@ export MINIMAX_API_KEY='...'
 | MiniMax | `MiniMax-M2.7` | $0.30 | $1.20 | Standard |
 
 価格確認元: DeepSeek API Docs、OpenAI API Pricing、Anthropic Claude Platform Docs、Google Gemini API Pricing、MiniMax API Docs。
+DeepSeekのピーク時間帯料金告知の控え: [docs/assets/deepseek-usage-pricing-notice-2026-07-09.png](docs/assets/deepseek-usage-pricing-notice-2026-07-09.png)
 
 ## 構成
 
