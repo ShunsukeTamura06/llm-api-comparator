@@ -1,0 +1,1080 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM API Comparator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6f8;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #667085;
+      --line: #d7e0ea;
+      --accent: #116d6e;
+      --accent-strong: #0b5557;
+      --indigo: #4157a8;
+      --amber: #b54708;
+      --danger: #b42318;
+      --ok: #027a48;
+      --soft: #eef6f6;
+      --soft-indigo: #f0f3ff;
+      --soft-amber: #fff7e6;
+      --code: #101828;
+      --shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 750;
+    }
+
+    .status {
+      min-width: 190px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.error { color: var(--danger); }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+      gap: 16px;
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    section, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      padding: 16px;
+      align-self: start;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-rows: auto auto minmax(420px, 1fr);
+      gap: 12px;
+      min-width: 0;
+    }
+
+    label {
+      display: block;
+      margin: 13px 0 6px;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #c5d1dd;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    input, select {
+      height: 38px;
+      padding: 7px 10px;
+    }
+
+    textarea {
+      min-height: 112px;
+      resize: vertical;
+      padding: 10px;
+    }
+
+    input:focus, select:focus, textarea:focus, button:focus {
+      outline: 2px solid rgba(17, 109, 110, 0.22);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .preset-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 1px solid #b8c6d4;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      min-height: 36px;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #f8fafc; }
+    button:disabled { opacity: 0.58; cursor: wait; }
+
+    .primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 750;
+    }
+
+    .primary:hover { background: var(--accent-strong); }
+
+    .targets {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .target {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px;
+      background: #fbfdff;
+    }
+
+    .target input {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+    }
+
+    .target strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .target span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .target-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-button {
+      width: 30px;
+      min-height: 30px;
+      padding: 0;
+      font-weight: 750;
+    }
+
+    .target-toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .editor {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      background: #fbfdff;
+      display: none;
+    }
+
+    .editor.open {
+      display: block;
+    }
+
+    .editor h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 13px;
+      font-size: 13px;
+      color: #344054;
+      font-weight: 650;
+    }
+
+    .checkline input {
+      width: 16px;
+      height: 16px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .warning {
+      border: 1px solid #fedf89;
+      background: var(--soft-amber);
+      color: var(--amber);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 13px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .summary-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 10px;
+      min-height: 70px;
+    }
+
+    .summary-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 17px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .matrix {
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 760px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #fbfdff;
+      color: #344054;
+      font-weight: 750;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td.wrap {
+      white-space: normal;
+      min-width: 220px;
+      max-width: 340px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: var(--soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.indigo {
+      background: var(--soft-indigo);
+      color: var(--indigo);
+    }
+
+    .badge.error {
+      background: #fff1f0;
+      color: var(--danger);
+    }
+
+    .responses {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .response-card {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(180px, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .response-card.best-time { border-color: rgba(2, 122, 72, 0.38); }
+    .response-card.best-cost { border-color: rgba(65, 87, 168, 0.42); }
+
+    .card-head {
+      border-bottom: 1px solid var(--line);
+      padding: 11px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card-head h2 {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .mini-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .mini-metrics div {
+      background: #fbfdff;
+      padding: 9px;
+      min-width: 0;
+    }
+
+    .mini-metrics span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .mini-metrics strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--code);
+    }
+
+    details {
+      border-top: 1px solid var(--line);
+      background: #fffaf3;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 9px 12px;
+      color: #4e2f0f;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    details pre {
+      color: #4e2f0f;
+      padding-top: 0;
+      max-height: 220px;
+    }
+
+    .empty {
+      padding: 32px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      .responses { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+      .status { text-align: left; }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 640px) {
+      main { padding: 10px; }
+      .grid, .actions, .preset-row, .summary { grid-template-columns: 1fr; }
+      .mini-metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>LLM API Comparator</h1>
+    <div id="status" class="status">待機中</div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <label>APIキー設定</label>
+      <div id="configHint" class="hint">読み込み中...</div>
+
+      <label>比較対象</label>
+      <div id="targets" class="targets"></div>
+      <div class="target-toolbar">
+        <button id="addTargetButton" type="button">追加</button>
+        <button id="resetTargetsButton" type="button">設定を再読み込み</button>
+      </div>
+
+      <div id="targetEditor" class="editor">
+        <h2 id="editorTitle">比較対象を編集</h2>
+        <input id="targetId" type="hidden">
+        <label for="targetLabel">表示名</label>
+        <input id="targetLabel" type="text">
+        <div class="grid">
+          <div>
+            <label for="targetProvider">Provider</label>
+            <select id="targetProvider">
+              <option value="openai_compatible">OpenAI互換</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="litellm">LiteLLM</option>
+            </select>
+          </div>
+          <div>
+            <label for="targetModel">Model</label>
+            <input id="targetModel" type="text">
+          </div>
+        </div>
+        <label for="targetBaseUrl">Base URL</label>
+        <input id="targetBaseUrl" type="text">
+        <div class="grid">
+          <div>
+            <label for="targetApiKeyEnv">APIキー環境変数</label>
+            <input id="targetApiKeyEnv" type="text">
+          </div>
+          <div>
+            <label for="targetThinking">Thinking</label>
+            <select id="targetThinking">
+              <option value="disabled">disabled</option>
+              <option value="enabled">enabled</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="targetInputPrice">入力 $/1M</label>
+            <input id="targetInputPrice" type="number" min="0" step="0.000001">
+          </div>
+          <div>
+            <label for="targetOutputPrice">出力 $/1M</label>
+            <input id="targetOutputPrice" type="number" min="0" step="0.000001">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="saveTargetButton" type="button" class="primary">保存</button>
+          <button id="cancelTargetButton" type="button">キャンセル</button>
+        </div>
+        <div class="hint">画面上の編集はブラウザ内だけに保持されます。APIキー本体は設定ファイルまたは環境変数で管理してください。</div>
+      </div>
+
+      <div class="grid">
+        <div>
+          <label for="effort">Reasoning effort</label>
+          <select id="effort">
+            <option value="high">high</option>
+            <option value="max">max</option>
+          </select>
+        </div>
+        <div>
+          <label for="maxTokens">最大出力</label>
+          <input id="maxTokens" type="number" min="64" max="8192" step="64" value="2048">
+        </div>
+      </div>
+
+      <label>プリセット</label>
+      <div class="preset-row">
+        <button type="button" data-preset="summary">要約</button>
+        <button type="button" data-preset="coding">コード</button>
+        <button type="button" data-preset="reasoning">推論</button>
+        <button type="button" data-preset="json">JSON</button>
+      </div>
+
+      <label for="systemPrompt">System</label>
+      <textarea id="systemPrompt"></textarea>
+
+      <label for="userPrompt">User</label>
+      <textarea id="userPrompt"></textarea>
+
+      <label class="checkline">
+        <input id="jsonMode" type="checkbox">
+        JSON出力モード
+      </label>
+
+      <div class="actions">
+        <button id="runButton" type="button" class="primary">並行実行</button>
+        <button id="clearButton" type="button">クリア</button>
+      </div>
+
+      <div class="warning">選択した比較対象の数だけAPIリクエストが発生します。概算費用はキャッシュミス前提です。</div>
+    </section>
+
+    <div class="workspace">
+      <section class="summary">
+        <div class="summary-item"><span>総実行時間</span><strong id="elapsed">-</strong></div>
+        <div class="summary-item"><span>最速</span><strong id="fastest">-</strong></div>
+        <div class="summary-item"><span>最安</span><strong id="cheapest">-</strong></div>
+        <div class="summary-item"><span>合計概算費用</span><strong id="totalCost">-</strong></div>
+        <div class="summary-item"><span>Run ID</span><strong id="requestId">-</strong></div>
+        <div class="summary-item"><span>実行ログ</span><strong id="logPath">-</strong></div>
+      </section>
+
+      <section class="matrix">
+        <table>
+          <thead>
+            <tr>
+              <th>API</th>
+              <th>時間</th>
+              <th>費用</th>
+              <th>Total</th>
+              <th>Prompt</th>
+              <th>Completion</th>
+              <th>Finish</th>
+              <th>回答プレビュー</th>
+            </tr>
+          </thead>
+          <tbody id="matrixBody">
+            <tr><td colspan="8" class="empty">質問を入力して並行実行してください。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <div id="responses" class="responses"></div>
+    </div>
+  </main>
+
+  <script>
+    const presets = {
+      summary: {
+        system: "あなたは日本語で簡潔かつ実務的に回答するAIアシスタントです。",
+        user: "以下の状況を、経営会議向けに「要点」「懸念」「次のアクション」の3見出しで200字程度に要約してください。\\n\\n新規SaaSのβ版は想定より早く利用企業が増えた一方、オンボーディングに時間がかかり、サポート工数が週30時間を超えています。解約率は低いものの、管理者向け権限設定と監査ログへの要望が強く、営業は大企業向け提案を急ぎたいと言っています。開発チームは既存のデータ同期処理の遅延も抱えています。",
+        json: false,
+        maxTokens: 2048
+      },
+      coding: {
+        system: "あなたはPythonに強いシニアエンジニアです。日本語で回答してください。",
+        user: "次の関数は、空配列や負数を含む入力で意図しない結果になります。バグを説明し、型ヒント付きで修正版を書いてください。\\n\\n```python\\ndef average_positive(nums):\\n    total = 0\\n    count = 0\\n    for n in nums:\\n        if n > 0:\\n            total += n\\n        count += 1\\n    return total / count\\n```",
+        json: false,
+        maxTokens: 2048
+      },
+      reasoning: {
+        system: "あなたは推論過程を簡潔に整理し、最終結論を明確に示すアシスタントです。",
+        user: "A、B、C、Dの4人がいます。AはBより速く、CはDより遅い。BはDより速く、CはAより遅い。この条件から確実に言える順位関係を説明してください。",
+        json: false,
+        maxTokens: 3072
+      },
+      json: {
+        system: "必ずjsonだけを返してください。Markdownや説明文は不要です。例: {\\\"category\\\":\\\"billing\\\",\\\"priority\\\":\\\"high\\\",\\\"reply_summary\\\":\\\"請求書の差し替え依頼\\\"}",
+        user: "次の問い合わせを分類し、JSONで返してください。スキーマは {\\\"category\\\": string, \\\"priority\\\": \\\"low\\\"|\\\"medium\\\"|\\\"high\\\", \\\"reply_summary\\\": string} です。\\n\\n問い合わせ: 請求書の金額が契約書と違います。今月中に監査があるため、本日中に正しい請求書へ差し替えてください。",
+        json: true,
+        maxTokens: 1024
+      }
+    };
+
+    const elements = {
+      status: document.getElementById("status"),
+      configHint: document.getElementById("configHint"),
+      targets: document.getElementById("targets"),
+      addTargetButton: document.getElementById("addTargetButton"),
+      resetTargetsButton: document.getElementById("resetTargetsButton"),
+      targetEditor: document.getElementById("targetEditor"),
+      editorTitle: document.getElementById("editorTitle"),
+      targetId: document.getElementById("targetId"),
+      targetLabel: document.getElementById("targetLabel"),
+      targetProvider: document.getElementById("targetProvider"),
+      targetModel: document.getElementById("targetModel"),
+      targetBaseUrl: document.getElementById("targetBaseUrl"),
+      targetApiKeyEnv: document.getElementById("targetApiKeyEnv"),
+      targetThinking: document.getElementById("targetThinking"),
+      targetInputPrice: document.getElementById("targetInputPrice"),
+      targetOutputPrice: document.getElementById("targetOutputPrice"),
+      saveTargetButton: document.getElementById("saveTargetButton"),
+      cancelTargetButton: document.getElementById("cancelTargetButton"),
+      effort: document.getElementById("effort"),
+      maxTokens: document.getElementById("maxTokens"),
+      systemPrompt: document.getElementById("systemPrompt"),
+      userPrompt: document.getElementById("userPrompt"),
+      jsonMode: document.getElementById("jsonMode"),
+      runButton: document.getElementById("runButton"),
+      clearButton: document.getElementById("clearButton"),
+      elapsed: document.getElementById("elapsed"),
+      fastest: document.getElementById("fastest"),
+      cheapest: document.getElementById("cheapest"),
+      totalCost: document.getElementById("totalCost"),
+      requestId: document.getElementById("requestId"),
+      logPath: document.getElementById("logPath"),
+      matrixBody: document.getElementById("matrixBody"),
+      responses: document.getElementById("responses")
+    };
+
+    const state = { targets: [], editingId: null, configPath: "" };
+
+    function setStatus(message, type = "") {
+      elements.status.textContent = message;
+      elements.status.className = `status ${type}`;
+    }
+
+    function formatCost(value) {
+      return value == null ? "-" : `$${Number(value).toFixed(8)}`;
+    }
+
+    function formatValue(value, suffix = "") {
+      return value == null ? "-" : `${value}${suffix}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function providerDefaults(provider) {
+      if (provider === "openai") {
+        return { baseUrl: "https://api.openai.com/v1", apiKeyEnv: "OPENAI_API_KEY", thinking: "disabled" };
+      }
+      if (provider === "anthropic") {
+        return { baseUrl: "https://api.anthropic.com/v1", apiKeyEnv: "ANTHROPIC_API_KEY", thinking: "disabled" };
+      }
+      if (provider === "litellm") {
+        return { baseUrl: "", apiKeyEnv: "LITELLM_API_KEY", thinking: "disabled" };
+      }
+      return { baseUrl: "https://api.deepseek.com", apiKeyEnv: "DEEPSEEK_API_KEY", thinking: "disabled" };
+    }
+
+    function normalizeTarget(target) {
+      const provider = target.provider || "openai_compatible";
+      const defaults = providerDefaults(provider);
+      return {
+        id: target.id || `target-${Date.now()}`,
+        label: target.label || target.model || "Untitled",
+        provider,
+        base_url: target.base_url || defaults.baseUrl,
+        model: target.model || "",
+        api_key_env: target.api_key_env || defaults.apiKeyEnv,
+        thinking: target.thinking || defaults.thinking,
+        reasoning_effort: target.reasoning_effort || "high",
+        selected: target.selected ?? true,
+        has_resolved_api_key: Boolean(target.has_resolved_api_key),
+        pricing: {
+          input_per_1m: target.pricing?.input_per_1m ?? null,
+          output_per_1m: target.pricing?.output_per_1m ?? null
+        },
+        pricing_note: target.pricing_note || ""
+      };
+    }
+
+    function mergePersistedTargets(serverTargets, persistedTargets) {
+      if (!persistedTargets) {
+        return serverTargets;
+      }
+      const retiredDefaultIds = new Set(["openai-custom", "anthropic-custom", "gemini-via-litellm", "minimax-via-litellm"]);
+      const persistedById = new Map(persistedTargets.map((target) => [target.id, target]));
+      const serverIds = new Set(serverTargets.map((target) => target.id));
+      const mergedTargets = serverTargets.map((target) => ({ ...target, ...persistedById.get(target.id) }));
+      for (const target of persistedTargets) {
+        if (!serverIds.has(target.id) && !retiredDefaultIds.has(target.id)) {
+          mergedTargets.push(target);
+        }
+      }
+      return mergedTargets;
+    }
+
+    function persistTargets() {
+      localStorage.setItem("apiComparatorTargets", JSON.stringify(state.targets));
+    }
+
+    function loadPersistedTargets() {
+      const rawValue = localStorage.getItem("apiComparatorTargets");
+      if (!rawValue) {
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(rawValue);
+        return Array.isArray(parsed) ? parsed.map(normalizeTarget) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function loadConfig() {
+      const response = await fetch("/api/config");
+      const config = await response.json();
+      if (!response.ok) {
+        throw new Error(config.error || `HTTP ${response.status}`);
+      }
+      state.configPath = config.config_path || "";
+      const serverTargets = (config.compare_targets || []).map(normalizeTarget);
+      state.targets = mergePersistedTargets(serverTargets, loadPersistedTargets());
+      persistTargets();
+      elements.configHint.textContent = `APIキー本体はサーバー側の環境変数、または ${state.configPath} で設定します。画面には保存しません。`;
+      renderTargets();
+    }
+
+    function formatPricing(target) {
+      const inputPrice = target.pricing?.input_per_1m;
+      const outputPrice = target.pricing?.output_per_1m;
+      if (inputPrice === null || outputPrice === null || inputPrice === undefined || outputPrice === undefined) {
+        return "price unset";
+      }
+      return `$${Number(inputPrice).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}/$${Number(outputPrice).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")} per 1M`;
+    }
+
+    function renderTargets() {
+      elements.targets.innerHTML = state.targets.map((target) => `
+        <label class="target">
+          <input type="checkbox" data-target-id="${escapeHtml(target.id)}" ${target.selected ? "checked" : ""}>
+          <span>
+            <strong>${escapeHtml(target.label)}</strong>
+            <span>${escapeHtml(target.provider)} / ${escapeHtml(target.model)} / ${escapeHtml(formatPricing(target))} / key=${escapeHtml(target.api_key_env || "-")} / ${target.has_resolved_api_key ? "key ok" : "key missing"}</span>
+            ${target.pricing_note ? `<span>${escapeHtml(target.pricing_note)}</span>` : ""}
+          </span>
+          <span class="target-actions">
+            <button class="icon-button" type="button" data-edit-target="${escapeHtml(target.id)}" title="編集">E</button>
+            <button class="icon-button" type="button" data-delete-target="${escapeHtml(target.id)}" title="削除">D</button>
+          </span>
+        </label>
+      `).join("");
+
+      elements.targets.querySelectorAll("[data-target-id]").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+          const target = state.targets.find((item) => item.id === checkbox.dataset.targetId);
+          if (target) {
+            target.selected = checkbox.checked;
+            persistTargets();
+          }
+        });
+      });
+      elements.targets.querySelectorAll("[data-edit-target]").forEach((button) => {
+        button.addEventListener("click", () => openEditor(button.dataset.editTarget));
+      });
+      elements.targets.querySelectorAll("[data-delete-target]").forEach((button) => {
+        button.addEventListener("click", () => deleteTarget(button.dataset.deleteTarget));
+      });
+    }
+
+    function selectedTargets() {
+      return state.targets
+        .filter((target) => target.selected)
+        .map((target) => ({
+          id: target.id,
+          label: target.label,
+          provider: target.provider,
+          base_url: target.base_url,
+          model: target.model,
+          api_key_env: target.api_key_env,
+          thinking: target.thinking,
+          reasoning_effort: target.reasoning_effort || elements.effort.value,
+          pricing: target.pricing
+        }));
+    }
+
+    function openEditor(targetId = null) {
+      const target = targetId
+        ? state.targets.find((item) => item.id === targetId)
+        : normalizeTarget({ id: `custom-${Date.now()}`, label: "Custom API", provider: "openai_compatible", selected: true });
+      if (!target) {
+        return;
+      }
+      state.editingId = targetId;
+      elements.editorTitle.textContent = targetId ? "比較対象を編集" : "比較対象を追加";
+      elements.targetId.value = target.id;
+      elements.targetLabel.value = target.label;
+      elements.targetProvider.value = target.provider;
+      elements.targetModel.value = target.model;
+      elements.targetBaseUrl.value = target.base_url;
+      elements.targetApiKeyEnv.value = target.api_key_env;
+      elements.targetThinking.value = target.thinking;
+      elements.targetInputPrice.value = target.pricing.input_per_1m ?? "";
+      elements.targetOutputPrice.value = target.pricing.output_per_1m ?? "";
+      elements.targetEditor.classList.add("open");
+    }
+
+    function closeEditor() {
+      state.editingId = null;
+      elements.targetEditor.classList.remove("open");
+    }
+
+    function readEditorTarget() {
+      const provider = elements.targetProvider.value;
+      const defaults = providerDefaults(provider);
+      return normalizeTarget({
+        id: elements.targetId.value || `custom-${Date.now()}`,
+        label: elements.targetLabel.value.trim() || elements.targetModel.value.trim() || "Custom API",
+        provider,
+        model: elements.targetModel.value.trim(),
+        base_url: elements.targetBaseUrl.value.trim() || defaults.baseUrl,
+        api_key_env: elements.targetApiKeyEnv.value.trim() || defaults.apiKeyEnv,
+        thinking: elements.targetThinking.value,
+        selected: true,
+        pricing: {
+          input_per_1m: elements.targetInputPrice.value === "" ? null : Number(elements.targetInputPrice.value),
+          output_per_1m: elements.targetOutputPrice.value === "" ? null : Number(elements.targetOutputPrice.value)
+        }
+      });
+    }
+
+    function saveEditorTarget() {
+      const target = readEditorTarget();
+      const existingIndex = state.targets.findIndex((item) => item.id === state.editingId || item.id === target.id);
+      if (existingIndex >= 0) {
+        state.targets[existingIndex] = { ...state.targets[existingIndex], ...target };
+      } else {
+        state.targets.push(target);
+      }
+      persistTargets();
+      renderTargets();
+      closeEditor();
+      setStatus("比較対象を更新しました", "ok");
+    }
+
+    function deleteTarget(targetId) {
+      state.targets = state.targets.filter((target) => target.id !== targetId);
+      persistTargets();
+      renderTargets();
+      setStatus("比較対象を削除しました", "ok");
+    }
+
+    function applyPreset(name) {
+      const preset = presets[name];
+      elements.systemPrompt.value = preset.system;
+      elements.userPrompt.value = preset.user;
+      elements.jsonMode.checked = preset.json;
+      elements.maxTokens.value = String(preset.maxTokens);
+    }
+
+    function resetOutput() {
+      elements.elapsed.textContent = "-";
+      elements.fastest.textContent = "-";
+      elements.cheapest.textContent = "-";
+      elements.totalCost.textContent = "-";
+      elements.requestId.textContent = "-";
+      elements.logPath.textContent = "-";
+      elements.matrixBody.innerHTML = `<tr><td colspan="8" class="empty">質問を入力して並行実行してください。</td></tr>`;
+      elements.responses.innerHTML = "";
+    }
+
+    function renderSummary(result) {
+      const summary = result.summary || {};
+      elements.elapsed.textContent = `${result.elapsed_sec}s`;
+      elements.fastest.textContent = summary.fastest_label || "-";
+      elements.cheapest.textContent = summary.cheapest_label || "-";
+      elements.totalCost.textContent = formatCost(summary.total_estimated_cost_usd);
+      elements.requestId.textContent = result.request_id || "-";
+      elements.logPath.textContent = result.log_path || "-";
+    }
+
+    function renderMatrix(results) {
+      elements.matrixBody.innerHTML = results.map((result) => {
+        const previewSource = result.error || result.content || result.warning || "";
+        const preview = previewSource.replaceAll("\\n", " ").slice(0, 150);
+        const statusBadge = result.error
+          ? `<span class="badge error">error</span>`
+          : result.warning
+            ? `<span class="badge error">warning</span>`
+          : `<span class="badge">${escapeHtml(result.provider || "")}</span>`;
+        return `
+          <tr>
+            <td><strong>${escapeHtml(result.label)}</strong><br>${statusBadge}<br>${escapeHtml(result.model || "")}</td>
+            <td>${formatValue(result.latency_sec, "s")}</td>
+            <td>${formatCost(result.estimated_cost_usd)}</td>
+            <td>${formatValue(result.total_tokens)}</td>
+            <td>${formatValue(result.prompt_tokens)}</td>
+            <td>${formatValue(result.completion_tokens)}</td>
+            <td>${escapeHtml(result.finish_reason || "-")}</td>
+            <td class="wrap">${escapeHtml(preview)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderCards(results, summary) {
+      elements.responses.innerHTML = results.map((result) => {
+        const isFastest = summary.fastest_target_id === result.target_id;
+        const isCheapest = summary.cheapest_target_id === result.target_id;
+        const classNames = ["card", "response-card", isFastest ? "best-time" : "", isCheapest ? "best-cost" : ""]
+          .filter(Boolean)
+          .join(" ");
+        const badges = [
+          isFastest ? `<span class="badge">最速</span>` : "",
+          isCheapest ? `<span class="badge indigo">最安</span>` : "",
+          result.error ? `<span class="badge error">error</span>` : ""
+        ].join("");
+        const content = result.error ? result.error : result.content;
+        const reasoning = result.reasoning_content || "";
+        const warning = result.warning || "";
+        return `
+          <section class="${classNames}">
+            <div class="card-head">
+              <h2>${escapeHtml(result.label)}</h2>
+              <div>${badges}</div>
+            </div>
+            <div class="mini-metrics">
+              <div><span>Time</span><strong>${formatValue(result.latency_sec, "s")}</strong></div>
+              <div><span>Cost</span><strong>${formatCost(result.estimated_cost_usd)}</strong></div>
+              <div><span>Tokens</span><strong>${formatValue(result.total_tokens)}</strong></div>
+              <div><span>Finish</span><strong>${escapeHtml(result.finish_reason || "-")}</strong></div>
+            </div>
+            ${warning ? `<div class="warning">${escapeHtml(warning)}</div>` : ""}
+            <pre>${escapeHtml(content || "")}</pre>
+            <details ${reasoning ? "" : "disabled"}>
+              <summary>Reasoning content</summary>
+              <pre>${escapeHtml(reasoning || "APIからreasoning_contentは返っていません。")}</pre>
+            </details>
+          </section>
+        `;
+      }).join("");
+    }
+
+    async function runCompare() {
+      resetOutput();
+      const targets = selectedTargets();
+      if (targets.length === 0) {
+        setStatus("比較対象を選択してください", "error");
+        return;
+      }
+
+      setStatus(`${targets.length}件を並行実行中...`);
+      elements.runButton.disabled = true;
+      const body = {
+        targets,
+        effort: elements.effort.value,
+        system_prompt: elements.systemPrompt.value,
+        user_prompt: elements.userPrompt.value,
+        max_tokens: Number(elements.maxTokens.value),
+        json_mode: elements.jsonMode.checked
+      };
+
+      try {
+        const response = await fetch("/api/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || `HTTP ${response.status}`);
+        }
+        renderSummary(result);
+        renderMatrix(result.results || []);
+        renderCards(result.results || [], result.summary || {});
+        setStatus("比較完了", "ok");
+      } catch (error) {
+        elements.matrixBody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(error.message)}</td></tr>`;
+        setStatus("エラー", "error");
+      } finally {
+        elements.runButton.disabled = false;
+      }
+    }
+
+    document.querySelectorAll("[data-preset]").forEach((button) => {
+      button.addEventListener("click", () => applyPreset(button.dataset.preset));
+    });
+    elements.addTargetButton.addEventListener("click", () => openEditor());
+    elements.resetTargetsButton.addEventListener("click", async () => {
+      localStorage.removeItem("apiComparatorTargets");
+      await loadConfig();
+      setStatus("設定を再読み込みしました", "ok");
+    });
+    elements.targetProvider.addEventListener("change", () => {
+      const defaults = providerDefaults(elements.targetProvider.value);
+      elements.targetBaseUrl.value = defaults.baseUrl;
+      elements.targetApiKeyEnv.value = defaults.apiKeyEnv;
+      elements.targetThinking.value = defaults.thinking;
+    });
+    elements.saveTargetButton.addEventListener("click", saveEditorTarget);
+    elements.cancelTargetButton.addEventListener("click", closeEditor);
+    elements.runButton.addEventListener("click", runCompare);
+    elements.clearButton.addEventListener("click", () => {
+      resetOutput();
+      elements.userPrompt.value = "";
+      setStatus("待機中");
+    });
+
+    loadConfig().catch((error) => {
+      setStatus("設定読み込みエラー", "error");
+      elements.configHint.textContent = error.message;
+    });
+    applyPreset("summary");
+  </script>
+</body>
+</html>
