@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM API Comparator - Compare</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6f8;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #667085;
+      --line: #d7e0ea;
+      --accent: #116d6e;
+      --accent-strong: #0b5557;
+      --green: #027a48;
+      --blue: #2f5f98;
+      --amber: #b54708;
+      --danger: #b42318;
+      --soft: #eef6f6;
+      --soft-blue: #eff5ff;
+      --soft-amber: #fff7e6;
+      --shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 750;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    a {
+      color: var(--accent-strong);
+      font-size: 13px;
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    main {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .toolbar {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto auto;
+      align-items: end;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 750;
+      margin-bottom: 6px;
+    }
+
+    select, button {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #ffffff;
+      color: var(--text);
+      padding: 8px 10px;
+      font: inherit;
+    }
+
+    button {
+      width: auto;
+      min-width: 120px;
+      cursor: pointer;
+      font-weight: 750;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .status.ok { color: var(--green); }
+    .status.error { color: var(--danger); }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(130px, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .summary-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 10px;
+      min-height: 72px;
+    }
+
+    .summary-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .summary-item strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .chart {
+      padding: 12px;
+    }
+
+    .chart h2 {
+      margin-bottom: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(130px, 180px) 1fr minmax(72px, auto);
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+      min-height: 34px;
+    }
+
+    .bar-label {
+      font-size: 12px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .bar-track {
+      height: 14px;
+      border-radius: 999px;
+      background: #eef2f6;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      min-width: 2px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .bar.cost { background: var(--amber); }
+    .bar.token { background: var(--blue); }
+
+    .bar-value {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .matrix {
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 980px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #fbfdff;
+      color: #344054;
+      font-weight: 750;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td.wrap {
+      white-space: normal;
+      min-width: 260px;
+      max-width: 480px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: var(--soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .badge.warn {
+      background: var(--soft-amber);
+      color: var(--amber);
+    }
+
+    .badge.error {
+      background: #fff1f0;
+      color: var(--danger);
+    }
+
+    .answers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .answer {
+      overflow: hidden;
+    }
+
+    .answer-head {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+    }
+
+    .answer pre {
+      margin: 0;
+      padding: 12px;
+      max-height: 320px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .toolbar { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+      .charts { grid-template-columns: 1fr; }
+      .answers { grid-template-columns: 1fr; }
+      .status { text-align: left; }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 640px) {
+      main { padding: 10px; }
+      .summary { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 1fr; gap: 5px; }
+      .bar-value { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>LLM API Comparator</h1>
+      <a href="/">実行ページへ戻る</a>
+    </div>
+    <div id="status" class="status">履歴を読み込み中...</div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <div>
+        <label for="historySelect">比較する実行履歴</label>
+        <select id="historySelect"></select>
+      </div>
+      <button id="loadButton" class="primary" type="button">表示</button>
+      <button id="refreshButton" type="button">履歴更新</button>
+    </section>
+
+    <section class="summary">
+      <div class="summary-item"><span>Run ID</span><strong id="runId">-</strong></div>
+      <div class="summary-item"><span>対象数</span><strong id="targetCount">-</strong></div>
+      <div class="summary-item"><span>総実行時間</span><strong id="elapsed">-</strong></div>
+      <div class="summary-item"><span>合計概算費用</span><strong id="totalCost">-</strong></div>
+      <div class="summary-item"><span>最速 / 最安</span><strong id="bestTargets">-</strong></div>
+    </section>
+
+    <div class="charts">
+      <section class="chart">
+        <h2>時間</h2>
+        <div id="latencyChart"></div>
+      </section>
+      <section class="chart">
+        <h2>費用</h2>
+        <div id="costChart"></div>
+      </section>
+      <section class="chart">
+        <h2>トークン</h2>
+        <div id="tokenChart"></div>
+      </section>
+    </div>
+
+    <section class="matrix">
+      <table>
+        <thead>
+          <tr>
+            <th>API</th>
+            <th>状態</th>
+            <th>時間</th>
+            <th>費用</th>
+            <th>Total</th>
+            <th>Prompt</th>
+            <th>Completion</th>
+            <th>Finish</th>
+            <th>回答プレビュー</th>
+          </tr>
+        </thead>
+        <tbody id="matrixBody">
+          <tr><td colspan="9" class="empty">履歴を選択してください。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div id="answers" class="answers"></div>
+  </main>
+
+  <script>
+    const elements = {
+      status: document.getElementById("status"),
+      historySelect: document.getElementById("historySelect"),
+      loadButton: document.getElementById("loadButton"),
+      refreshButton: document.getElementById("refreshButton"),
+      runId: document.getElementById("runId"),
+      targetCount: document.getElementById("targetCount"),
+      elapsed: document.getElementById("elapsed"),
+      totalCost: document.getElementById("totalCost"),
+      bestTargets: document.getElementById("bestTargets"),
+      latencyChart: document.getElementById("latencyChart"),
+      costChart: document.getElementById("costChart"),
+      tokenChart: document.getElementById("tokenChart"),
+      matrixBody: document.getElementById("matrixBody"),
+      answers: document.getElementById("answers")
+    };
+
+    function setStatus(message, type = "") {
+      elements.status.textContent = message;
+      elements.status.className = `status ${type}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function formatCost(value) {
+      return value == null ? "-" : `$${Number(value).toFixed(8)}`;
+    }
+
+    function formatValue(value, suffix = "") {
+      return value == null ? "-" : `${value}${suffix}`;
+    }
+
+    function formatTimestamp(value) {
+      if (!value) {
+        return "-";
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "medium" });
+    }
+
+    function labelFor(result) {
+      return result.label || result.model || result.target_id || "-";
+    }
+
+    function positiveMax(results, key) {
+      return Math.max(0, ...results.map((result) => Number(result[key] || 0)));
+    }
+
+    function renderBarChart(container, results, key, className, formatter) {
+      const maxValue = positiveMax(results, key);
+      const rows = results.map((result) => {
+        const value = Number(result[key] || 0);
+        const width = maxValue > 0 ? Math.max(2, (value / maxValue) * 100) : 0;
+        return `
+          <div class="bar-row">
+            <div class="bar-label">${escapeHtml(labelFor(result))}</div>
+            <div class="bar-track"><div class="bar ${className}" style="width:${width}%"></div></div>
+            <div class="bar-value">${escapeHtml(formatter(value, result))}</div>
+          </div>
+        `;
+      });
+      container.innerHTML = rows.join("") || `<div class="empty">表示できる値がありません。</div>`;
+    }
+
+    function renderSummary(history) {
+      const results = history.results || [];
+      const summary = history.summary || {};
+      elements.runId.textContent = history.request_id || "-";
+      elements.targetCount.textContent = String(results.length);
+      elements.elapsed.textContent = formatValue(history.elapsed_sec, "s");
+      elements.totalCost.textContent = formatCost(summary.total_estimated_cost_usd);
+      elements.bestTargets.textContent = `${summary.fastest_label || "-"} / ${summary.cheapest_label || "-"}`;
+    }
+
+    function renderCharts(results) {
+      renderBarChart(elements.latencyChart, results, "latency_sec", "", (value) => value ? `${value.toFixed(3)}s` : "-");
+      renderBarChart(elements.costChart, results, "estimated_cost_usd", "cost", (value) => value ? formatCost(value) : "-");
+      renderBarChart(elements.tokenChart, results, "total_tokens", "token", (value) => value ? String(value) : "-");
+    }
+
+    function renderMatrix(results) {
+      elements.matrixBody.innerHTML = results.map((result) => {
+        const statusBadge = result.error
+          ? `<span class="badge error">error</span>`
+          : result.warning
+            ? `<span class="badge warn">warning</span>`
+            : `<span class="badge">ok</span>`;
+        const preview = (result.error || result.content || result.warning || "").replaceAll("\\n", " ").slice(0, 180);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(labelFor(result))}</strong><br>${escapeHtml(result.model || "")}</td>
+            <td>${statusBadge}</td>
+            <td>${formatValue(result.latency_sec, "s")}</td>
+            <td>${formatCost(result.estimated_cost_usd)}</td>
+            <td>${formatValue(result.total_tokens)}</td>
+            <td>${formatValue(result.prompt_tokens)}</td>
+            <td>${formatValue(result.completion_tokens)}</td>
+            <td>${escapeHtml(result.finish_reason || "-")}</td>
+            <td class="wrap">${escapeHtml(preview)}</td>
+          </tr>
+        `;
+      }).join("") || `<tr><td colspan="9" class="empty">比較結果がありません。</td></tr>`;
+    }
+
+    function renderAnswers(results) {
+      elements.answers.innerHTML = results.map((result) => `
+        <section class="answer">
+          <div class="answer-head">
+            <h2>${escapeHtml(labelFor(result))}</h2>
+            <span class="badge ${result.error ? "error" : result.warning ? "warn" : ""}">${result.error ? "error" : result.warning ? "warning" : "ok"}</span>
+          </div>
+          <pre>${escapeHtml(result.error || result.content || result.warning || "")}</pre>
+        </section>
+      `).join("");
+    }
+
+    function renderComparison(history) {
+      const results = history.results || [];
+      renderSummary(history);
+      renderCharts(results);
+      renderMatrix(results);
+      renderAnswers(results);
+    }
+
+    async function loadHistoryList() {
+      const response = await fetch("/api/history?limit=100");
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const history = data.history || [];
+      elements.historySelect.innerHTML = history.map((item) => {
+        const label = `${formatTimestamp(item.timestamp)} / ${item.target_count} targets / ${item.prompt_preview || "(promptなし)"}`;
+        return `<option value="${escapeHtml(item.request_id || "")}">${escapeHtml(label)}</option>`;
+      }).join("");
+      if (!history.length) {
+        elements.historySelect.innerHTML = `<option value="">履歴がありません</option>`;
+        setStatus("履歴がありません");
+        return;
+      }
+      setStatus(`${history.length}件の履歴を読み込みました`, "ok");
+      await loadSelectedHistory();
+    }
+
+    async function loadSelectedHistory() {
+      const requestId = elements.historySelect.value;
+      if (!requestId) {
+        return;
+      }
+      setStatus("比較データを読み込み中...");
+      const response = await fetch(`/api/history/${encodeURIComponent(requestId)}`);
+      const history = await response.json();
+      if (!response.ok) {
+        throw new Error(history.error || `HTTP ${response.status}`);
+      }
+      renderComparison(history);
+      setStatus("比較表示中", "ok");
+    }
+
+    elements.loadButton.addEventListener("click", () => {
+      loadSelectedHistory().catch((error) => setStatus(error.message, "error"));
+    });
+    elements.refreshButton.addEventListener("click", () => {
+      loadHistoryList().catch((error) => setStatus(error.message, "error"));
+    });
+    elements.historySelect.addEventListener("change", () => {
+      loadSelectedHistory().catch((error) => setStatus(error.message, "error"));
+    });
+
+    loadHistoryList().catch((error) => setStatus(error.message, "error"));
+  </script>
+</body>
+</html>

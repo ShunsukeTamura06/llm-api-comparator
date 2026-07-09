@@ -12,6 +12,7 @@ from unittest.mock import Mock
 from api_comparator.comparison import ComparisonRequestValidator, DefaultSummaryBuilder
 from api_comparator.config import TargetNormalizer, TargetRepository
 from api_comparator.logging import ExecutionHistoryStore, ExecutionLogger
+from api_comparator.paths import COMPARE_INDEX_PATH
 from api_comparator.provider_registry import ProviderRegistry, build_default_provider_registry
 from api_comparator.providers import JsonHttpClient, LiteLLMClient, OpenAIChatClient
 from api_comparator.services import ResultAdvisor
@@ -300,6 +301,21 @@ class ExecutionHistoryStoreTest(unittest.TestCase):
             self.assertEqual(detail["results"][0]["content"], "hello")
             self.assertNotIn("api_key", serialized_detail)
             self.assertNotIn("dummy-secret", serialized_detail)
+
+
+class StaticPageTest(unittest.TestCase):
+    """静的ページのテスト。"""
+
+    def test_compare_page_exists_with_visual_sections(self) -> None:
+        """比較専用ページにはグラフと表の表示領域がある。"""
+
+        html = COMPARE_INDEX_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("実行ページへ戻る", html)
+        self.assertIn("latencyChart", html)
+        self.assertIn("costChart", html)
+        self.assertIn("tokenChart", html)
+        self.assertIn("matrixBody", html)
 
 
 class ExampleConfigTest(unittest.TestCase):

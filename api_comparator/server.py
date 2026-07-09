@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from .config import TargetRepository
 from .defaults import DEFAULT_MODELS, MODEL_PRICING_USD_PER_1M_TOKENS
 from .logging import ExecutionHistoryStore
-from .paths import STATIC_INDEX_PATH, TARGET_CONFIG_PATH
+from .paths import COMPARE_INDEX_PATH, STATIC_INDEX_PATH, TARGET_CONFIG_PATH
 from .services import ComparisonService
 
 
@@ -28,7 +28,7 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
         """HEADリクエストを処理する。"""
 
         parsed_path = urlparse(self.path)
-        if parsed_path.path in {"/", "/index.html", "/api/config", "/api/history"}:
+        if parsed_path.path in {"/", "/index.html", "/compare", "/compare.html", "/api/config", "/api/history"}:
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Length", "0")
             self.end_headers()
@@ -41,6 +41,9 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         if parsed_path.path in {"/", "/index.html"}:
             self.send_text(self.load_index_html(), content_type="text/html; charset=utf-8")
+            return
+        if parsed_path.path in {"/compare", "/compare.html"}:
+            self.send_text(self.load_compare_html(), content_type="text/html; charset=utf-8")
             return
         if parsed_path.path == "/api/config":
             self.handle_config()
@@ -178,6 +181,15 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
         """
 
         return STATIC_INDEX_PATH.read_text(encoding="utf-8")
+
+    def load_compare_html(self) -> str:
+        """比較専用ページのHTMLを読み込む。
+
+        Returns:
+            表示するHTML文字列。
+        """
+
+        return COMPARE_INDEX_PATH.read_text(encoding="utf-8")
 
     def log_message(self, format: str, *args: Any) -> None:
         """APIキーをログへ出さない最小限のアクセスログを出力する。
