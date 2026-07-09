@@ -278,6 +278,63 @@
       margin-top: 13px;
     }
 
+    .history {
+      padding: 12px;
+    }
+
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .history-head h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+      max-height: 240px;
+      overflow: auto;
+    }
+
+    .history-item {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fbfdff;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .history-item:hover {
+      border-color: rgba(17, 109, 110, 0.42);
+      background: var(--soft);
+    }
+
+    .history-item strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+      margin-bottom: 4px;
+      overflow-wrap: anywhere;
+    }
+
+    .history-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
     .summary {
       display: grid;
       grid-template-columns: repeat(4, minmax(130px, 1fr));
@@ -588,6 +645,16 @@
     </section>
 
     <div class="workspace">
+      <section class="history">
+        <div class="history-head">
+          <h2>実行履歴</h2>
+          <button id="refreshHistoryButton" type="button">更新</button>
+        </div>
+        <div id="historyList" class="history-list">
+          <div class="empty">履歴を読み込み中...</div>
+        </div>
+      </section>
+
       <section class="summary">
         <div class="summary-item"><span>総実行時間</span><strong id="elapsed">-</strong></div>
         <div class="summary-item"><span>最速</span><strong id="fastest">-</strong></div>
@@ -681,6 +748,8 @@
       totalCost: document.getElementById("totalCost"),
       requestId: document.getElementById("requestId"),
       logPath: document.getElementById("logPath"),
+      refreshHistoryButton: document.getElementById("refreshHistoryButton"),
+      historyList: document.getElementById("historyList"),
       matrixBody: document.getElementById("matrixBody"),
       responses: document.getElementById("responses")
     };
@@ -698,6 +767,17 @@
 
     function formatValue(value, suffix = "") {
       return value == null ? "-" : `${value}${suffix}`;
+    }
+
+    function formatTimestamp(value) {
+      if (!value) {
+        return "-";
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "medium" });
     }
 
     function escapeHtml(value) {
@@ -1005,6 +1085,55 @@
       }).join("");
     }
 
+    function renderHistory(history) {
+      if (!history.length) {
+        elements.historyList.innerHTML = `<div class="empty">まだ履歴はありません。</div>`;
+        return;
+      }
+      elements.historyList.innerHTML = history.map((item) => `
+        <button class="history-item" type="button" data-history-id="${escapeHtml(item.request_id || "")}">
+          <strong>${escapeHtml(formatTimestamp(item.timestamp))} / ${escapeHtml(item.request_id || "-")}</strong>
+          <span>${escapeHtml(item.prompt_preview || "(promptなし)")}</span>
+          <span>${formatValue(item.target_count)} targets / ${formatValue(item.success_count)} ok / ${formatValue(item.error_count)} error / ${formatCost(item.total_estimated_cost_usd)}</span>
+        </button>
+      `).join("");
+      elements.historyList.querySelectorAll("[data-history-id]").forEach((button) => {
+        button.addEventListener("click", () => loadHistoryDetail(button.dataset.historyId));
+      });
+    }
+
+    async function loadHistory() {
+      const response = await fetch("/api/history?limit=50");
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      renderHistory(data.history || []);
+    }
+
+    async function loadHistoryDetail(requestId) {
+      if (!requestId) {
+        return;
+      }
+      setStatus("履歴を読み込み中...");
+      const response = await fetch(`/api/history/${encodeURIComponent(requestId)}`);
+      const history = await response.json();
+      if (!response.ok) {
+        setStatus(history.error || "履歴読み込みエラー", "error");
+        return;
+      }
+      if (history.request) {
+        elements.systemPrompt.value = history.request.system_prompt || "";
+        elements.userPrompt.value = history.request.user_prompt || "";
+        elements.maxTokens.value = String(history.request.max_tokens || elements.maxTokens.value);
+        elements.jsonMode.checked = Boolean(history.request.json_mode);
+      }
+      renderSummary(history);
+      renderMatrix(history.results || []);
+      renderCards(history.results || [], history.summary || {});
+      setStatus("履歴を表示中", "ok");
+    }
+
     async function runCompare() {
       resetOutput();
       const targets = selectedTargets();
@@ -1037,6 +1166,7 @@
         renderSummary(result);
         renderMatrix(result.results || []);
         renderCards(result.results || [], result.summary || {});
+        await loadHistory();
         setStatus("比較完了", "ok");
       } catch (error) {
         elements.matrixBody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(error.message)}</td></tr>`;
@@ -1064,14 +1194,19 @@
     elements.saveTargetButton.addEventListener("click", saveEditorTarget);
     elements.cancelTargetButton.addEventListener("click", closeEditor);
     elements.runButton.addEventListener("click", runCompare);
+    elements.refreshHistoryButton.addEventListener("click", () => {
+      loadHistory()
+        .then(() => setStatus("履歴を更新しました", "ok"))
+        .catch((error) => setStatus(error.message, "error"));
+    });
     elements.clearButton.addEventListener("click", () => {
       resetOutput();
       elements.userPrompt.value = "";
       setStatus("待機中");
     });
 
-    loadConfig().catch((error) => {
-      setStatus("設定読み込みエラー", "error");
+    Promise.all([loadConfig(), loadHistory()]).catch((error) => {
+      setStatus("初期読み込みエラー", "error");
       elements.configHint.textContent = error.message;
     });
     applyPreset("summary");

@@ -11,7 +11,7 @@ from unittest.mock import Mock
 
 from api_comparator.comparison import ComparisonRequestValidator, DefaultSummaryBuilder
 from api_comparator.config import TargetNormalizer, TargetRepository
-from api_comparator.logging import ExecutionLogger
+from api_comparator.logging import ExecutionHistoryStore, ExecutionLogger
 from api_comparator.provider_registry import ProviderRegistry, build_default_provider_registry
 from api_comparator.providers import JsonHttpClient, LiteLLMClient, OpenAIChatClient
 from api_comparator.services import ResultAdvisor
@@ -254,6 +254,52 @@ class ExecutionLoggerTest(unittest.TestCase):
             self.assertEqual(log_entry["target_id"], "openai")
             self.assertNotIn("api_key", log_entry)
             self.assertNotIn("dummy-secret", json.dumps(log_entry))
+
+
+class ExecutionHistoryStoreTest(unittest.TestCase):
+    """実行履歴保存のテスト。"""
+
+    def test_record_saves_replayable_history_without_api_keys(self) -> None:
+        """質問と結果を再表示可能な形式で保存し、APIキーは含めない。"""
+
+        with TemporaryDirectory() as temp_dir:
+            store = ExecutionHistoryStore(history_path=Path(temp_dir) / "history.jsonl")
+
+            store.record(
+                request={
+                    "system_prompt": "sys",
+                    "user_prompt": "hi",
+                    "max_tokens": 32,
+                    "json_mode": False,
+                    "targets": [
+                        {
+                            "id": "openai",
+                            "label": "OpenAI",
+                            "model": "gpt",
+                            "provider": "openai",
+                            "api_key": "dummy-secret",
+                            "api_key_env": "OPENAI_API_KEY",
+                        }
+                    ],
+                },
+                result={
+                    "request_id": "req-1",
+                    "elapsed_sec": 1.2,
+                    "summary": {"total_estimated_cost_usd": 0.01},
+                    "results": [{"target_id": "openai", "content": "hello", "error": None}],
+                },
+            )
+
+            history = store.list_runs(limit=10)
+            detail = store.get_run("req-1")
+            serialized_detail = json.dumps(detail, ensure_ascii=False)
+
+            self.assertEqual(history[0]["request_id"], "req-1")
+            self.assertEqual(history[0]["target_count"], 1)
+            self.assertEqual(detail["request"]["user_prompt"], "hi")
+            self.assertEqual(detail["results"][0]["content"], "hello")
+            self.assertNotIn("api_key", serialized_detail)
+            self.assertNotIn("dummy-secret", serialized_detail)
 
 
 class ExampleConfigTest(unittest.TestCase):

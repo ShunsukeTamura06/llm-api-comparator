@@ -9,7 +9,7 @@ from typing import Any
 
 from .comparison import ComparisonRequestValidator, DefaultSummaryBuilder, SummaryBuilder
 from .config import TargetNormalizer, TargetRepository
-from .logging import ExecutionLogger
+from .logging import ExecutionHistoryStore, ExecutionLogger
 from .provider_registry import ProviderRegistry, build_default_provider_registry
 
 
@@ -114,6 +114,7 @@ class ComparisonService:
         provider_registry: ProviderRegistry | None = None,
         cost_estimator: TokenCostEstimator | None = None,
         execution_logger: ExecutionLogger | None = None,
+        history_store: ExecutionHistoryStore | None = None,
         result_advisor: ResultAdvisor | None = None,
         summary_builder: SummaryBuilder | None = None,
         request_validator: ComparisonRequestValidator | None = None,
@@ -125,6 +126,7 @@ class ComparisonService:
             provider_registry: プロバイダクライアントレジストリ。
             cost_estimator: 概算費用計算クラス。
             execution_logger: 実行ログ記録クラス。
+            history_store: 実行履歴保存クラス。
             result_advisor: 結果補足警告の生成クラス。
             summary_builder: 比較サマリー生成戦略。
             request_validator: 比較リクエストの検証クラス。
@@ -135,6 +137,7 @@ class ComparisonService:
         self.provider_registry = provider_registry or build_default_provider_registry()
         self.cost_estimator = cost_estimator or TokenCostEstimator()
         self.execution_logger = execution_logger or ExecutionLogger()
+        self.history_store = history_store or ExecutionHistoryStore()
         self.result_advisor = result_advisor or ResultAdvisor()
         self.summary_builder = summary_builder or DefaultSummaryBuilder()
         self.request_validator = request_validator or ComparisonRequestValidator()
@@ -176,13 +179,15 @@ class ComparisonService:
             success_count=len(successful_results),
             error_count=len(results) - len(successful_results),
         )
-        return {
+        response = {
             "request_id": request_id,
             "elapsed_sec": elapsed_sec,
             "results": results,
             "summary": self.summary_builder.build(successful_results),
             "log_path": str(self.execution_logger.log_path),
         }
+        self.history_store.record(request={**request, "targets": targets}, result=response)
+        return response
 
     def _call_target(self, request: dict[str, Any], target: dict[str, Any], request_id: str) -> dict[str, Any]:
         """比較対象1件を実行する。

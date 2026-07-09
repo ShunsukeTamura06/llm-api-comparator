@@ -7,9 +7,11 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .config import TargetRepository
 from .defaults import DEFAULT_MODELS, MODEL_PRICING_USD_PER_1M_TOKENS
+from .logging import ExecutionHistoryStore
 from .paths import STATIC_INDEX_PATH, TARGET_CONFIG_PATH
 from .services import ComparisonService
 
@@ -19,12 +21,14 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
 
     server_version = "ApiComparatorGui/2.0"
     repository = TargetRepository()
+    history_store = ExecutionHistoryStore()
     comparison_service = ComparisonService(repository=repository)
 
     def do_HEAD(self) -> None:
         """HEADリクエストを処理する。"""
 
-        if self.path in {"/", "/index.html", "/api/config"}:
+        parsed_path = urlparse(self.path)
+        if parsed_path.path in {"/", "/index.html", "/api/config", "/api/history"}:
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Length", "0")
             self.end_headers()
@@ -34,11 +38,18 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         """GETリクエストを処理する。"""
 
-        if self.path in {"/", "/index.html"}:
+        parsed_path = urlparse(self.path)
+        if parsed_path.path in {"/", "/index.html"}:
             self.send_text(self.load_index_html(), content_type="text/html; charset=utf-8")
             return
-        if self.path == "/api/config":
+        if parsed_path.path == "/api/config":
             self.handle_config()
+            return
+        if parsed_path.path == "/api/history":
+            self.handle_history(parsed_path.query)
+            return
+        if parsed_path.path.startswith("/api/history/"):
+            self.handle_history_detail(parsed_path.path.removeprefix("/api/history/"))
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -78,6 +89,33 @@ class ApiComparatorHandler(BaseHTTPRequestHandler):
                 "config_path": str(TARGET_CONFIG_PATH),
             }
         )
+
+    def handle_history(self, query: str) -> None:
+        """実行履歴の概要一覧を返す。
+
+        Args:
+            query: URLクエリ文字列。
+        """
+
+        params = parse_qs(query)
+        try:
+            limit = int((params.get("limit") or ["50"])[0])
+        except ValueError:
+            limit = 50
+        self.send_json({"history": self.history_store.list_runs(limit=limit)})
+
+    def handle_history_detail(self, request_id: str) -> None:
+        """Run IDに対応する実行履歴詳細を返す。
+
+        Args:
+            request_id: URLパス上のRun ID。
+        """
+
+        history = self.history_store.get_run(unquote(request_id))
+        if history is None:
+            self.send_json({"error": "指定されたRun IDの履歴は見つかりません。"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_json(history)
 
     def read_json_body(self) -> dict[str, Any]:
         """リクエストボディをJSONとして読み込む。

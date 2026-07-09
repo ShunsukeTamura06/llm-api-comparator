@@ -39,7 +39,7 @@ GUIでは任意の質問を入力し、複数の比較対象を並行実行で�
 OpenAI、Anthropic、Gemini、MiniMaxの代表モデルも価格付きで初期登録されていますが、APIキー未設定時のエラーを避けるため未選択です。チェックを入れるだけで比較対象へ追加できます。
 
 比較画面には、回答内容、実行時間、トークン数、概算費用、finish reason、reasoning contentが表示されます。
-各実行にはRun IDが付き、キーやプロンプト全文を含まない実行ログが `results/api_comparator.log` にJSON Lines形式で出力されます。
+各実行にはRun IDが付き、GUIの実行履歴から過去の質問・回答・メトリクスを再表示できます。
 
 比較対象はGUI上で追加・編集・削除できます。画面上の編集はブラウザ内に保持されます。
 
@@ -159,15 +159,19 @@ python3 scripts/api_comparator_probe.py --cases jp_summary coding --models deeps
 
 費用はキャッシュミス前提で概算しています。実請求はDeepSeek側の利用明細を確認してください。
 
-## 実行ログ
+## 実行履歴とログ
 
-GUIで比較を実行すると、`results/api_comparator.log` に以下のイベントが追記されます。
+GUIで比較を実行すると、後から見返すための履歴が `results/api_comparator_history.jsonl` に保存されます。履歴にはRun ID、質問、回答、reasoning content、実行時間、トークン数、概算費用、サマリーが含まれます。APIキーやAuthorizationヘッダーは保存しません。
+
+GUI上部の「実行履歴」から過去の実行を選ぶと、その時の質問と比較結果を再表示できます。
+
+監査・デバッグ用の軽量ログは `results/api_comparator.log` に以下のイベントとして追記されます。
 
 - `run_started`: 実行開始、Run ID、対象数、最大出力トークン数
 - `target_result`: APIごとのモデル、実行時間、総トークン数、概算費用、エラー
 - `run_finished`: 実行終了、成功数、エラー数、総実行時間
 
-ログにはAPIキー、Authorizationヘッダー、プロンプト全文、回答全文は出力しません。GitHub公開時に実行ログを含めないため、`results/` は `.gitignore` 済みです。
+軽量ログにはAPIキー、Authorizationヘッダー、プロンプト全文、回答全文は出力しません。GitHub公開時に履歴とログを含めないため、`results/` は `.gitignore` 済みです。
 
 ## SSL証明書エラーへの対処
 
