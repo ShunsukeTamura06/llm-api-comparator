@@ -82,6 +82,9 @@ export MINIMAX_API_KEY='...'
 | DeepSeek | `deepseek-v4-pro` | $0.435 | $0.87 | Cache miss前提 |
 | OpenAI | `gpt-5.5` | $5.00 | $30.00 | Standard / short context |
 | OpenAI | `gpt-5.4-mini` | $0.75 | $4.50 | Standard / short context |
+| OpenAI | `gpt-5.6-sol` | $5.00 | $30.00 | GPT-5.6シリーズ / 最上位 |
+| OpenAI | `gpt-5.6-terra` | $2.50 | $15.00 | GPT-5.6シリーズ / バランス型 |
+| OpenAI | `gpt-5.6-luna` | $1.00 | $6.00 | GPT-5.6シリーズ / 高速・低価格 |
 | Anthropic | `claude-fable-5` | $10.00 | $50.00 | Claude API |
 | Anthropic | `claude-opus-4-8` | $5.00 | $25.00 | Claude API |
 | Anthropic | `claude-sonnet-5` | $2.00 | $10.00 | 2026-08-31までのintroductory pricing |
